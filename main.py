@@ -10,19 +10,30 @@ if lp.Open():
 else:
     print("Failed to open Launchpad!")
     exit()
-lp.ButtonFlush() 
 lp.Reset()  # Reset the Launchpad to clear any lights
-try: # when butten pressed button_press[0] should be the pad num
-    print("Press buttons on the Launchpad to see their coordinates (Ctrl+C to exit).")
+def getButton():
+    lp.ButtonFlush() 
     while True:
         # Poll for a button press
         button_press = lp.ButtonStateRaw()
         if button_press:  # If a button press is detected
             button, state = button_press[0], button_press[1]
             print(f"Button pressed: {button}, State: {'Pressed' if state else 'Released'}")
+            return button
         time.sleep(0.01)  # Slight delay to avoid CPU overload
+def getColor():
+    return (3,3)
+def updatePad(button,colorTuple):
+    lp.LedCtrlRaw(button,colorTuple[0],colorTuple[1])
+def main():
+    print("select Color")
+    colorTuple=getColor()
+    print("selectButton")
+    button = getButton()
+    updatePad(button,colorTuple)
+    input("waiting to exit")
+    lp.Reset()
+    lp.Close()
 
-except KeyboardInterrupt:
-    print("\nExiting...")
-lp.Reset()  # Reset the Launchpad before exiting
-lp.Close()  # Close the connection
+if __name__ == "__main__":
+    main()
