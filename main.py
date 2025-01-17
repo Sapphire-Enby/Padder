@@ -3,14 +3,21 @@ import launchpad_py as launchpad
 import time
 
 # Initialize the Launchpad
+
 lp = launchpad.Launchpad()
+
 if lp.Open():
     print("Launchpad opened successfully!")
+
 else:
     print("Failed to open Launchpad!")
     exit()
+
 lp.Reset()  # Reset the Launchpad to clear any lights
+
 PAD_CACHE = {}
+COLOR_SELECTOR={0: (1, 0), 1: (2, 0), 2: (3, 0), 16: (1, 1), 17: (2, 2), 18: (3, 3), 32: (0, 1), 33: (0, 2), 34:(0, 3)}
+
 def getButton():
     lp.ButtonFlush() 
     print("press a SQUARE button on the pad to set the color")
@@ -52,11 +59,17 @@ def save_light_config(filename="light_config.json"):
     print(f"Light configuration saved to {filename}")
 
 def map_color_select():
-    pos=[0,1,2,16,17,18,32,33,34]
-    red=[1,2,3,1,2,3,0,0,0]
-    green=[0,0,0,1,2,3,1,2,3]
-    for i in range(9):
-        updatePad(pos[i],(red[i],green[i]))
+    lp.reset() # clear map
+    for k,v in COLOR_SELECTOR.items(): #  render colors in profile (dont update cache)
+        lp.LedCtrlRaw(k,v[0],v[1])
+    sel=getButton()  # prompt to choose button for color selection
+    color=COLOR_SELECTOR.get(sel,(0,0)) # grab color, with blank as default
+    PAD_CACHE[sel]=color # update cache pad cache
+    lp.reset() # clear pad
+    for k,v in PAD_CACHE.items(): # render cache
+        lp.LedCtrlRaw(k,v[0],v[1])
+    
+    
 
 def main():
     print("select Color")
