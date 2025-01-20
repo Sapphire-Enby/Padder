@@ -2,7 +2,7 @@
 import launchpad_py as launchpad
 import time
 import json
-
+from os.path import exists
 
 debug = True
 def debugfun(og):
@@ -78,10 +78,6 @@ def GetStore_n_Render():
     StorePad(key,value)
     RenderMap(CACHE)
 
-def CloseProcess():
-    ClearRender()
-    lp.Close()
-
 def PromptLoad():
     while True:
         try:
@@ -114,7 +110,39 @@ def ProcessRawLoad(fileData):
     outDict= {int(k):tuple(v) for k,v in fileData.items()}
     print(outDict)
     return outDict
-    
+
+def SavePrompt():
+    while True:
+        ans = input('save? y/n \n>')
+        if ans != 'y':
+            break
+        try:
+            SaveQuery()
+            return
+        except KeyboardInterrupt:
+            print("save abandoned")   
+
+def SaveQuery():
+    while True:
+        try:
+            ft = input('name Save')
+            if exists(ft) and input('Overwrite?') !='y' :
+                continue
+            global CACHE
+            with open(ft,'w') as config:
+                json.dump(CACHE, config)
+            print(f"saving file {config}")
+            return
+        except KeyboardInterrupt:
+            print("canceling save")
+            raise
+
+def CloseProcess():
+    SavePrompt()
+    ClearRender()
+    lp.Close()
+
+   
 """
 >loadCache():
     since initally writting this down, this became a whole process
@@ -127,7 +155,8 @@ def ProcessRawLoad(fileData):
     go back and scrape
 _
 """
-if __name__ == "__main__":
+def main():
+    global CACHE
     if (mapCopy := PromptLoad):
         CACHE=mapCopy()
         RenderMap(CACHE)
@@ -138,3 +167,5 @@ if __name__ == "__main__":
             break
     CloseProcess()
 
+if __name__ == "__main__":
+    main()
