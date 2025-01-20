@@ -1,3 +1,0 @@
-# Dependencies for MIDI controller
-pip3 install pygame
-pip3 install launchpad_py

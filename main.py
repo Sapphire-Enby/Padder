@@ -1,85 +1,171 @@
-
+#!/usr/bin/env python3
 import launchpad_py as launchpad
 import time
+import json
+from os.path import exists
 
-# Initialize the Launchpad
+debug = True
+def debugfun(og):
+    if not debug:
+        return og    
+    def wrap(*args, **kwargs):
+        result = og(*args, **kwargs)
+        print(CACHE)
+        return result
+    return wrap
+# Global Constants
+CACHE = {}
+COLMAP={0: (1, 0), 1: (2, 0), 2: (3, 0), 16: (1, 1), 17: (2, 2), 18: (3, 3), 32: (0, 1), 33: (0, 2), 34:(0, 3)}
 
+# Helper Methods
 lp = launchpad.Launchpad()
+lp.Open()
+def ClearRender():  # stops all lights
+    lp.Reset()
 
-if lp.Open():
-    print("Launchpad opened successfully!")
+def LightPad(padNum,colorTuple): #lights a single pad
+    lp.LedCtrlRaw(padNum,colorTuple[0],colorTuple[1])
 
-else:
-    print("Failed to open Launchpad!")
-    exit()
+def RenderMap(profile):
+    ClearRender()
+    # leave function if not expected map
+    if profile not in [CACHE,COLMAP]:
+        return
+    else: # otherwise light every pad in Map
+        for k,v in profile.items():
+            LightPad(k,v)
 
-lp.Reset()  # Reset the Launchpad to clear any lights
+def StorePad(padNum,colorTuple):
+    #  Places the desired changes into the Cache
+    CACHE[padNum] = colorTuple
 
-PAD_CACHE = {}
-COLOR_SELECTOR={0: (1, 0), 1: (2, 0), 2: (3, 0), 16: (1, 1), 17: (2, 2), 18: (3, 3), 32: (0, 1), 33: (0, 2), 34:(0, 3)}
+def ClearBuffer():
+    lp.ButtonFlush() # Call this before getting pad input 
 
-def getButton():
-    lp.ButtonFlush() 
-    print("press a SQUARE button on the pad to set the color")
+def getButton(querystr="Select a Square"):  # prompts for a pad, returns number
+    time.sleep(1)
+    ClearBuffer()
+    print(querystr)
+    button= None
     while True:
-        # Poll for a button press
         button_press = lp.ButtonStateRaw()
         if button_press:  # If a button press is detected
             button, state = button_press[0], button_press[1]
             print(f"Button pressed: {button}, State: {'Pressed' if state else 'Released'}")
-            return button
-        time.sleep(0.01)  # Slight delay to avoid CPU overload
+            ClearRender()
+        time.sleep(0.10)  # Slight delay to avoid CPU overload
+        if button is not None:
+            time.sleep(1)
+            return button 
 
-def get_valid_input(color):
+
+def getPadNum():  # setup pad for location select, return selected pad
+    ClearRender()
+    RenderMap(CACHE)
+    return(getButton("Pick a Square to Change"))
+
+def getColor(): # setup pad for color select<
+    #clearRender, then render COLMap, then getPadNum,
+    ClearRender()
+    RenderMap(COLMAP)
+    colIndex=getButton("Pick a Color to Copy") # defaults to blank
+    return(COLMAP.get(colIndex,(0,0)))
+
+@debugfun
+def GetStore_n_Render():
+    key=getPadNum()
+    value=getColor()
+    StorePad(key,value)
+    RenderMap(CACHE)
+
+def PromptLoad():
     while True:
         try:
-            user_input = int(input(f"Enter a number (0-3) for {color}: "))
-            if user_input in range(4):  # range(4) means 0, 1, 2, 3
-                return user_input
+            responce = input("Load Previous config? y/n:")
+            if responce not in ['n','y']:
+                continue
+            elif responce == 'n':
+                return None
             else:
-                print("Invalid input. Please enter a number between 0 and 3.")
-        except ValueError:
-            print("Invalid input. Please enter a valid integer.")
+                fileData=QueryFileLoad()
+                toLoad = ProcessRawLoad(fileData)
+                return toLoad        
+        except FileNotFoundError:
+            continue
 
-def getColor():
-    redVal = get_valid_input('red')
-    greenVal = get_valid_input('green')
-    return (redVal , greenVal)
 
-def updatePad(button,colorTuple):
-    PAD_CACHE[button] = colorTuple
-    lp.LedCtrlRaw(button,colorTuple[0],colorTuple[1])
 
-def save_light_config(filename="light_config.json"):
-    import json
-    config = {k:v for k,v in PAD_CACHE.items() if v !=(0,0)}   
-    # Save to a JSON file
-    with open(filename, "w") as f:
-        json.dump(config, f)
-    print(f"Light configuration saved to {filename}")
 
-def map_color_select():
-    lp.reset() # clear map
-    for k,v in COLOR_SELECTOR.items(): #  render colors in profile (dont update cache)
-        lp.LedCtrlRaw(k,v[0],v[1])
-    sel=getButton()  # prompt to choose button for color selection
-    color=COLOR_SELECTOR.get(sel,(0,0)) # grab color, with blank as default
-    PAD_CACHE[sel]=color # update cache pad cache
-    lp.reset() # clear pad
-    for k,v in PAD_CACHE.items(): # render cache
-        lp.LedCtrlRaw(k,v[0],v[1])
-    
-    
+def QueryFileLoad():
+    try:
+        responce = input("enter filename")
+        with open(responce,'r') as config:
+            out=json.load(config)
+            print(out)
+            return out
+    except FileNotFoundError:
+        print("file not found")
+        raise
+def ProcessRawLoad(fileData):
+    outDict= {int(k):tuple(v) for k,v in fileData.items()}
+    print(outDict)
+    return outDict
 
-def main():
-    print("select Color")
-    colorTuple=getColor()
-    print("selectButton")
-    button = getButton()
-    updatePad(button,colorTuple)
-    input("waiting to exit")
-    lp.Reset()
+def SavePrompt():
+    while True:
+        ans = input('save? y/n \n>')
+        if ans != 'y':
+            break
+        try:
+            SaveQuery()
+            return
+        except KeyboardInterrupt:
+            print("save abandoned")   
+
+def SaveQuery():
+    while True:
+        try:
+            ft = input('name Save')
+            if exists(ft) and input('Overwrite?') !='y' :
+                continue
+            global CACHE
+            with open(ft,'w') as config:
+                json.dump(CACHE, config)
+            print(f"saving file {config}")
+            return
+        except KeyboardInterrupt:
+            print("canceling save")
+            raise
+
+def CloseProcess():
+    SavePrompt()
+    ClearRender()
     lp.Close()
+
+   
+"""
+>loadCache():
+    since initally writting this down, this became a whole process
+    not a single method, its in the notebook, has user input loops
+    with try excepts and shit.
+    remember you have to cast the key as int and value as tuple before
+    storing them. but this needs to be many smaller methods
+>saveCache():
+    previous versions have sucessfully saved a dict to JSON
+    go back and scrape
+_
+"""
+def main():
+    global CACHE
+    if (mapCopy := PromptLoad):
+        CACHE=mapCopy()
+        RenderMap(CACHE)
+    while True:
+        try:
+            GetStore_n_Render()
+        except KeyboardInterrupt:
+            break
+    CloseProcess()
 
 if __name__ == "__main__":
     main()
