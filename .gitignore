@@ -1,4 +1,5 @@
 launchpadMethods.md
 __pychache__/
 env/
-
+*.pyc
+*.pyo
