@@ -4,7 +4,7 @@ import time
 import json
 from os.path import exists
 
-debug = True
+debug = False 
 def debugfun(og):
     if not debug:
         return og    
@@ -42,7 +42,7 @@ def StorePad(padNum,colorTuple):
 def ClearBuffer():
     lp.ButtonFlush() # Call this before getting pad input 
 
-def getButton(querystr="Select a Square"):  # prompts for a pad, returns number
+def getButton(querystr="Select a Square\n"):  # prompts for a pad, returns number
     time.sleep(1)
     ClearBuffer()
     print(querystr)
@@ -51,7 +51,7 @@ def getButton(querystr="Select a Square"):  # prompts for a pad, returns number
         button_press = lp.ButtonStateRaw()
         if button_press:  # If a button press is detected
             button, state = button_press[0], button_press[1]
-            print(f"Button pressed: {button}, State: {'Pressed' if state else 'Released'}")
+            print(f"Button pressed: {button}, State: {'Pressed' if state else 'Released'}\n")
             ClearRender()
         time.sleep(0.10)  # Slight delay to avoid CPU overload
         if button is not None:
@@ -62,13 +62,13 @@ def getButton(querystr="Select a Square"):  # prompts for a pad, returns number
 def getPadNum():  # setup pad for location select, return selected pad
     ClearRender()
     RenderMap(CACHE)
-    return(getButton("Pick a Square to Change"))
+    return(getButton("Pick a Square to Change\n"))
 
 def getColor(): # setup pad for color select<
     #clearRender, then render COLMap, then getPadNum,
     ClearRender()
     RenderMap(COLMAP)
-    colIndex=getButton("Pick a Color to Copy") # defaults to blank
+    colIndex=getButton("Pick a Color to Copy\n") # defaults to blank
     return(COLMAP.get(colIndex,(0,0)))
 
 @debugfun
@@ -81,7 +81,7 @@ def GetStore_n_Render():
 def PromptLoad():
     while True:
         try:
-            responce = input("Load Previous config? y/n:")
+            responce = input("Load Previous config? y/n: \n>")
             if responce not in ['n','y']:
                 continue
             elif responce == 'n':
@@ -98,13 +98,13 @@ def PromptLoad():
 
 def QueryFileLoad():
     try:
-        responce = input("enter filename")
+        responce = input("enter filename \n>")
         with open(responce,'r') as config:
             out=json.load(config)
             print(out)
             return out
     except FileNotFoundError:
-        print("file not found")
+        print("file not found\n")
         raise
 def ProcessRawLoad(fileData):
     outDict= {int(k):tuple(v) for k,v in fileData.items()}
@@ -120,26 +120,40 @@ def SavePrompt():
             SaveQuery()
             return
         except KeyboardInterrupt:
-            print("save abandoned")   
+            print("save abandoned\n")   
 
 def SaveQuery():
     while True:
         try:
-            ft = input('name Save')
-            if exists(ft) and input('Overwrite?') !='y' :
+            ft = input('name Save \n>')
+            if exists(ft) and input('Overwrite? \n>') !='y' :
                 continue
             global CACHE
             with open(ft,'w') as config:
                 json.dump(CACHE, config)
-            print(f"saving file {config}")
+            print(f"saving file {config}\n")
             return
         except KeyboardInterrupt:
-            print("canceling save")
+            print("canceling save\n")
             raise
+def ClearPrompt():
+    while True:
+            try:
+                ans = input("clear map before end process? \n>")
+                if ans not in ['n','y']:
+                    print("invalid Try again \n")
+                    continue
+                if ans == 'y':
+                    ClearRender()
+                    break
+                else:
+                    break
+            except KeyboardInterrupt:
+                break
 
 def CloseProcess():
     SavePrompt()
-    ClearRender()
+    ClearPrompt()
     lp.Close()
 
    
@@ -157,8 +171,8 @@ _
 """
 def main():
     global CACHE
-    if (mapCopy := PromptLoad):
-        CACHE=mapCopy()
+    if (mapCopy := PromptLoad()):
+        CACHE=mapCopy
         RenderMap(CACHE)
     while True:
         try:
